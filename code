@@ -1,0 +1,51 @@
+#################################################
+## Part I: estimation and sanity-check of a two-segment logit model
+#################################################
+#################################################
+## Load data
+#################################################
+library('data.table')
+library('mlogit')
+library('RColorBrewer')
+rcol <- brewer.pal(9, 'Blues')
+raw.data <- fread("../data/bubbles.csv", stringsAsFactors=FALSE)
+demo <- fread("../data/demo.csv", stringsAsFactors=FALSE)
+colnames(raw.data) =
+c("id","week","trip","price.1","price.2","price.3","purchase.1","purchase.2","purchase.3")
+ # change column names
+raw.data$purchase <- 0
+raw.data$purchase[raw.data$purchase.1 == 1] <- 1
+raw.data$purchase[raw.data$purchase.2 == 1] <- 2
+raw.data$purchase[raw.data$purchase.3 == 1] <- 3
+#################################################
+## Common logit
+#################################################
+data <- raw.data
+data$price.0 <- 0
+mldat <- mlogit.data(data = data[, c(1:6, 10, 11)], id.var = "id", choice = "purchase",
+shape = "wide", varying = c(4:6, 8))
+ml_simp <- mlogit(purchase ~ price, data = mldat)
+#################################################
+## clustered logit
+#################################################
+N <- 359
+NC <- 6
+demo_cluster <- kmeans(demo[, 2:18], centers = NC, nstart = 100) # Naive approach
+demo_cluster$centers # examine how we can interpret them
+#
+# # kick out male and female occupation; keep age
+# demo$hh_occ <- NULL
+# demo$fem_occup <- NULL
+# demo$male_occup <- NULL
+# demo$hh_edu <- NULL
+# demo$hh_age <- NULL
+# # re-do
+# demo_cluster <- kmeans(demo[, 2:13], centers = NC, nstart = 100) # Naive approach
+# demo_cluster$centers # examine how we can interpret them
+cluster_dat <- data.frame(id = demo$id)
+cluster_dat$cluster <- demo_cluster$cluster
+data <- merge(data, cluster_dat, by = "id", all.x = T)
+data$cluster[is.na(data$cluster)] <- 0
+coef.est <- data.frame(segment = 0:NC, intercept.KR = NA, intercept.KB = NA,
+intercept.MB = NA, price.coef = NA)
+se.est <- data.frame(segment = 0:NC, intercept.KR = NA, intercept.KB = NA, intercept.MB
